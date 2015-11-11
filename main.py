@@ -6,14 +6,18 @@ import boto3
 import hashlib
 import os
 import dateutil.parser
+import json
+
+from inventory import Inventory
 
 #TODO: Show price of each action.. if it isnt free
 #TODO: Show time expected for each action.. if isnt real-time
 
 class App():
-    def __init__(self, vault):       
+    def __init__(self, vault):
         self.vaultName = vault
-        
+
+        self.files = None
         self.active_jobs = []
         self.glacier = boto3.client("glacier")
         self.res = boto3.resource("glacier")
@@ -27,7 +31,6 @@ class App():
         y = (hs/2) - (h/2)
         self.root.geometry("%dx%d+%d+%d" % (w,h,x,y) )
         
-        print(dir(self.root))
         self.createUI()
         self.updateTick()
         self.root.mainloop()
@@ -51,8 +54,16 @@ class App():
         for job in j["JobList"]:
             tk.Label(top, text="Action: " + job["Action"] , height=0, width=50).pack()
             tk.Label(top, text="Status: " + job["StatusCode"] , height=0, width=50).pack()
-            tk.Label(top, text="Date  : " + job["CreationDate"] , height=0, width=50).pack()
-        print(j)
+            tk.Label(top, text="Creation Date: " + job["CreationDate"] , height=0, width=50).pack()
+            if (job["StatusCode"] == "Succeeded"):
+                tk.Label(top, text="Completion Date: " + job["CompletionDate"] , height=0, width=50).pack()
+                jid = job["JobId"]
+
+                if (job["Action"] == "InventoryRetrieval"):
+                    a = self.res.Job("-",self.vaultName, jid)
+                    data = a.get_output()["body"]
+                    self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
+                    print(self.inventory)
 
     def uploadFile(self, filename):
         # Read File
