@@ -17,9 +17,14 @@ class Inventory():
         self.files = []
         for f in json["ArchiveList"]:
             self.files.append(File(f))
-            
 
     def __str__(self):
         s  = "Inventory Date: " + self.date + "\n"
         s += str(self.files)
         return s
+
+    def getArchiveId(self, size, date, description):
+        sid = None
+        for f in self.files:
+            if (str(f.size) == size and f.date == date and f.desc == description): sid = f.aid
+        return sid
