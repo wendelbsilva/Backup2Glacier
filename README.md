@@ -1,6 +1,8 @@
 # Backup2Glacier
 Backup data using AWS Glacier - Zealous-octo-rutabaga
 
+##### Status: Not usable yet #####
+
 #### Dependencies: ####
 
 **AWS Command Line Interface** - https://github.com/aws/aws-cli
