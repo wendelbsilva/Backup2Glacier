@@ -10,6 +10,8 @@ import os
 import dateutil.parser
 import json
 import datetime
+import pickle
+import os.path
 
 from inventory import Inventory
 
@@ -32,6 +34,7 @@ class App():
     def __init__(self, vault):
         self.vaultName = vault
 
+        self.inventory = None
         self.files = None
         self.active_jobs = []
         self.glacier = boto3.client("glacier")
@@ -45,11 +48,25 @@ class App():
         x = (ws/2) - (w/2)
         y = (hs/2) - (h/2)
         self.root.geometry("%dx%d+%d+%d" % (w,h,x,y) )
-        
+
         self.createUI()
-        self.initValues()
         self.updateTick()
+        self.root.wm_protocol("WM_DELETE_WINDOW", self.onDelete)
+        self.loadDefault()
         self.root.mainloop()
+
+    def onDelete(self):
+        if (self.inventory != None):
+            fInv = open("inventory.pkl","wb")
+            pickle.dump( self.inventory, fInv )
+            fInv.close()
+        self.root.destroy()
+
+    def loadDefault(self):
+        if (os.path.isfile("inventory.pkl")):
+            fInv = open("inventory.pkl", "rb")
+            self.inventory = pickle.load(fInv)
+            self.updateFileList()
 
     def createUI(self):
         # Add Labels about Vault
@@ -74,15 +91,15 @@ class App():
         # Add File Buttons
         tk.Button(self.root, text="Delete File", command=self.deleteFile).pack()
 
-    def initValues(self):
-        j = self.glacier.list_jobs(vaultName=self.vaultName,limit="10",statuscode="Succeeded")
-        for job in j["JobList"]:
-            if (job["Action"] == "InventoryRetrieval"):
-                jid = job["JobId"]
-                a = self.res.Job("-",self.vaultName, jid)
-                data = a.get_output()["body"]
-                self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
-                self.updateFileList()
+    #def initValues(self):
+    #    j = self.glacier.list_jobs(vaultName=self.vaultName,limit="10",statuscode="Succeeded")
+    #    for job in j["JobList"]:
+    #        if (job["Action"] == "InventoryRetrieval"):
+    #            jid = job["JobId"]
+    #            a = self.res.Job("-",self.vaultName, jid)
+    #            data = a.get_output()["body"]
+    #            self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
+    #            self.updateFileList()
 
     def deleteFile(self):
         focus = self._files.focus()
@@ -108,6 +125,7 @@ Do you want to continue?"""
         
     def jobStatus(self):
         j = self.glacier.list_jobs(vaultName=self.vaultName)
+        print(j)
         top = tk.Toplevel()
         for job in j["JobList"]:
             tk.Label(top, text="Action: " + job["Action"] , height=0, width=50).pack()
@@ -116,7 +134,6 @@ Do you want to continue?"""
             if (job["StatusCode"] == "Succeeded"):
                 tk.Label(top, text="Completion Date: " + job["CompletionDate"] , height=0, width=50).pack()
                 jid = job["JobId"]
-
                 if (job["Action"] == "InventoryRetrieval"):
                     a = self.res.Job("-",self.vaultName, jid)
                     data = a.get_output()["body"]
@@ -168,7 +185,7 @@ Do you want to continue?"""
         else:
             d = dateutil.parser.parse( vault.last_inventory_date )
             d.replace(tzinfo=None)
-            days = (d.replace(tzinfo=None)-datetime.datetime.utcnow()).days
+            days = (datetime.datetime.utcnow() - d.replace(tzinfo=None)).days
             # Amazon Glacier prepares an inventory for each vault periodically, every 24 hours.
             # When you initiate a job for a vault inventory, Amazon Glacier returns the last
             # inventory for the vault. The inventory data you get might be up to a day or
@@ -178,14 +195,16 @@ Do you want to continue?"""
             if (days > 2):
                 # TODO: Here we need to check if we already have a inventory_retrieval job
                 request = messagebox.askyesno("Inventory " + str(days) + " days old","Request Inventory from AWS Glacier?\nJob will take around 4-5 hours to complete.")
-            else:
-                #TODO: Here, update self.inventory with archives information
-                print(vault.number_of_archives)
-                print(vault.size_in_bytes)
                 
         if (request):
             a = vault.initiate_inventory_retrieval()
-            active_jobs.append(a.job_id)
+            self.active_jobs.append(a.job_id)
+        else:
+            # Use old data
+            #TODO: Here, update self.inventory with archives information
+            # Havent find a way to get old inventory data yet.. so will keep it locally
+            print(vault.number_of_archives)
+            print(vault.size_in_bytes)
     
     def updateTick(self):
         # Timer in milliseconds
