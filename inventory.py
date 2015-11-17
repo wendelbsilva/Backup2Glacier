@@ -1,10 +1,11 @@
 class File():
     def __init__(self, json):
-        self.size   = json["Size"]
-        self.date   = json["CreationDate"]
-        self.desc   = json["ArchiveDescription"]
-        self.aid    = json["ArchiveId"]
-        self.sha256 = json["SHA256TreeHash"]
+        self.size    = json["Size"]
+        self.date    = json["CreationDate"]
+        self.desc    = json["ArchiveDescription"]
+        self.aid     = json["ArchiveId"]
+        self.sha256  = json["SHA256TreeHash"]
+        self.deleted = False
     def __str__(self):
         return "File: " + self.desc + " - Size: " + str(self.size) + "bytes - Created: " + self.date
     def __repr__(self):
@@ -23,8 +24,8 @@ class Inventory():
         s += str(self.files)
         return s
 
-    def getArchiveId(self, size, date, description):
-        sid = None
+    def getFile(self, size, date, description):
+        ffile = None
         for f in self.files:
-            if (str(f.size) == size and f.date == date and f.desc == description): sid = f.aid
-        return sid
+            if (str(f.size) == size and f.date == date and f.desc == description): ffile = f
+        return ffile

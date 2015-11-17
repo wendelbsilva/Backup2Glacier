@@ -91,21 +91,19 @@ class App():
         # Add File Buttons
         tk.Button(self.root, text="Delete File", command=self.deleteFile).pack()
 
-    #def initValues(self):
-    #    j = self.glacier.list_jobs(vaultName=self.vaultName,limit="10",statuscode="Succeeded")
-    #    for job in j["JobList"]:
-    #        if (job["Action"] == "InventoryRetrieval"):
-    #            jid = job["JobId"]
-    #            a = self.res.Job("-",self.vaultName, jid)
-    #            data = a.get_output()["body"]
-    #            self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
-    #            self.updateFileList()
 
     def deleteFile(self):
         focus = self._files.focus()
         if (focus == ''): return
+        
         # Get Row
         f = self._files.set(focus)
+        # Get File
+        ffile = self.inventory.getFile(f["Size"], f["Date"], f["File"])
+        if (ffile.deleted):
+            messagebox.showinfo("File can't be deleted", "File Already Removed from the Cloud")
+            return
+        
         # Check Interval
         d = dateutil.parser.parse(f["Date"])
         d.replace(tzinfo=None)
@@ -116,11 +114,12 @@ class App():
 This action will cost deletion fee.
 Do you want to continue?"""
             request = messagebox.askyesno(title,msg)
-        aid = self.inventory.getArchiveId(f["Size"], f["Date"], f["File"])
-        if (request and aid != None):
-            #self.glacier.delete_archive(vaultName=self.vaultName, archiveId=aid)
-            print("Deleting....",aid)
-            #TODO: Should I wait to implement this?
+
+        # Delete?
+        if (request and ffile.aid != None and ffile.deleted == False):
+            self.glacier.delete_archive(vaultName=self.vaultName, archiveId=ffile.aid)
+            print("Deleting....", ffile.aid)
+            ffile.deleted = True
 
         
     def jobStatus(self):
@@ -145,7 +144,10 @@ Do you want to continue?"""
         self._files.delete(*self._files.get_children())
         # Repopulate Tree
         for f in self.inventory.files:
-            self._files.insert('','end',values=[f.desc,f.size,f.date])
+            tags = ()
+            if (f.deleted): tags=("deleted",)
+            self._files.insert("","end",values=[f.desc,f.size,f.date], tags=tags)
+        self._files.tag_configure("deleted", background="red")
 
     def uploadFile(self, filename):
         # Read File
