@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 import boto3
 
 import hashlib
@@ -12,6 +12,7 @@ import json
 import datetime
 import pickle
 import os.path
+from binascii import hexlify
 
 from inventory import Inventory
 
@@ -89,7 +90,48 @@ class App():
         self._files.pack()
 
         # Add File Buttons
+        tk.Button(self.root, text="Upload File", command=self.uploadFile).pack()
         tk.Button(self.root, text="Delete File", command=self.deleteFile).pack()
+
+    def __sha256tree(self, f):
+        f.seek(0, 0)
+        thash = []
+        size = 1024*1024 # 1MV
+        data = f.read( size )
+        while (data != b""):
+            thash.append( hashlib.sha256(data).digest() )
+            data = f.read( size )       
+        while (len(thash) > 1):
+            temp = thash
+            thash = []
+            while (len(temp) > 1):
+                data = temp[0] + temp[1]
+                temp = temp[2:]
+                thash.append( hashlib.sha256(data).digest() )
+            if (len(temp) == 1): thash.append( temp[0] )
+        return hexlify( thash[0] ).decode("ascii")
+
+    def uploadFile(self):
+        f = filedialog.askopenfilename()
+        if ( f != () and os.path.isfile(f) ):
+            request = messagebox.askyesno("Upload File","Uploading file: " + f + " ?\nDepending of the size of the file and your bandwidth it may take some time.\nDo you want to continue?")
+            if (request): self.__uploadFile(f)
+    def __uploadFile(self, filename):
+        # Read File
+        f = open(filename,"rb")
+        data = f.read()
+        comcheck = self.__sha256tree(f)
+        # Upload File
+        t = self.glacier.upload_archive(vaultName=self.vaultName,archiveDescription=filename,body=data)
+        status = t["ResponseMetadata"]["HTTPStatusCode"]
+        aid = t["archiveId"]
+        checksum = t["checksum"]
+        # Show Window with Result
+        top = tk.Toplevel()
+        tk.Label(top, text=str(status), height=0, width=150).pack()
+        tk.Label(top, text=aid, height=0, width=150).pack()
+        tk.Label(top, text=checksum, height=0, width=150).pack()
+        tk.Label(top, text=comcheck, height=0, width=150).pack()
 
 
     def deleteFile(self):
@@ -148,26 +190,6 @@ Do you want to continue?"""
             if (f.deleted): tags=("deleted",)
             self._files.insert("","end",values=[f.desc,f.size,f.date], tags=tags)
         self._files.tag_configure("deleted", background="red")
-
-    def uploadFile(self, filename):
-        # Read File
-        f = open(filename,"rb")
-        data = f.read()
-        checksum = hashlib.sha256(data).hexdigest()
-        # Upload File
-        t = self.glacier.upload_archive(vaultName=self.vaultName,archiveDescription=filename,body=data)
-        # Show Window with Result
-        top = tk.Toplevel()
-        for i in t["ResponseMetadata"]:
-            txt = i + ": " + str(t["ResponseMetadata"][i])
-            lbl = tk.Label(top, text=txt, height=0, width=150)
-            lbl.pack()
-            
-        for i in t:
-            if (i != "ResponseMetadata"):
-                txt = i + ": " + str(t[i])
-                lbl = tk.Label(top, text=txt, height=0, width=80, wraplength=600, justify="left")
-                lbl.pack()
     
 
     def listVaults(self):
