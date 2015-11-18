@@ -6,6 +6,7 @@ class File():
         self.aid     = json["ArchiveId"]
         self.sha256  = json["SHA256TreeHash"]
         self.deleted = False
+        self.isNew   = False
     def __str__(self):
         return "File: " + self.desc + " - Size: " + str(self.size) + "bytes - Created: " + self.date
     def __repr__(self):

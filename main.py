@@ -14,7 +14,7 @@ import pickle
 import os.path
 from binascii import hexlify
 
-from inventory import Inventory
+from inventory import Inventory, File
 
 # REFERENCE:
 # - UPLOAD and RETRIEVA Requests              $0.050 per 1,000 requests
@@ -126,10 +126,24 @@ class App():
         status = t["ResponseMetadata"]["HTTPStatusCode"]
         aid = t["archiveId"]
         checksum = t["checksum"]
+        
+        txtStatus = "File Uploaded Successfully!"
+        if (status != 201): txtStatus = "Something went wrong: " + str(status)
+
+        # TODO: Update Inventory
+        newFile = File( {"Size":os.path.getsize(filename),
+                         "CreationDate": datetime.datetime.utcnow().isoformat(),
+                         "ArchiveDescription": filename,
+                         "ArchiveId": aid,
+                         "SHA256TreeHash": checksum} )
+        newFile.isNew = True
+        self.inventory.files.append( newFile )
+        self.updateFileList()
+        
         # Show Window with Result
         top = tk.Toplevel()
-        tk.Label(top, text=str(status), height=0, width=150).pack()
-        tk.Label(top, text=aid, height=0, width=150).pack()
+        tk.Label(top, text=txtStatus, height=0, width=150).pack()
+        tk.Label(top, text="ArchiveId: " + aid, height=0, width=150).pack()
         tk.Label(top, text=checksum, height=0, width=150).pack()
         tk.Label(top, text=comcheck, height=0, width=150).pack()
 
@@ -178,6 +192,7 @@ Do you want to continue?"""
                 if (job["Action"] == "InventoryRetrieval"):
                     a = self.res.Job("-",self.vaultName, jid)
                     data = a.get_output()["body"]
+                    #TODO: Only update inventory if needed. Dont want to lose new/deleted info
                     self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
                     self.updateFileList()
 
@@ -188,8 +203,10 @@ Do you want to continue?"""
         for f in self.inventory.files:
             tags = ()
             if (f.deleted): tags=("deleted",)
+            elif (f.isNew): tags=("new",)
             self._files.insert("","end",values=[f.desc,f.size,f.date], tags=tags)
         self._files.tag_configure("deleted", background="red")
+        self._files.tag_configure("new", background="green")
     
 
     def listVaults(self):
