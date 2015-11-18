@@ -12,6 +12,7 @@ import json
 import datetime
 import pickle
 import os.path
+from math import floor
 from binascii import hexlify
 
 from inventory import Inventory, File
@@ -227,18 +228,23 @@ Do you want to continue?"""
             d = dateutil.parser.parse( vault.last_inventory_date )
             d.replace(tzinfo=None)
             days = (datetime.datetime.utcnow() - d.replace(tzinfo=None)).days
+            hours = (datetime.datetime.utcnow() - d.replace(tzinfo=None)).seconds/3600.0
+            hours = floor(hours*100)/100;
             # Amazon Glacier prepares an inventory for each vault periodically, every 24 hours.
             # When you initiate a job for a vault inventory, Amazon Glacier returns the last
             # inventory for the vault. The inventory data you get might be up to a day or
             # two days old.
             #
             # - So, we only request a new list if our current list is more than 2 days older
-            if (days > 2):
-                # TODO: Here we need to check if we already have a inventory_retrieval job
-                request = messagebox.askyesno("Inventory " + str(days) + " days old","Request Inventory from AWS Glacier?\nJob will take around 4-5 hours to complete.")
+            # TODO: Here we need to check if we already have a inventory_retrieval job
+            if (days >= 2):
+                request = messagebox.askyesno("Inventory is " + str(days) + " days old","Request Inventory from AWS Glacier?\nJob will take around 4-5 hours to complete.")
+            else:
+                request = messagebox.askyesno("Inventory is " + str(hours) + " hours old","Request Inventory from AWS Glacier?\nJob will take around 4-5 hours to complete.")
                 
         if (request):
             a = vault.initiate_inventory_retrieval()
+            #TODO: give some kind of feedback
             self.active_jobs.append(a.job_id)
         else:
             # Use old data
