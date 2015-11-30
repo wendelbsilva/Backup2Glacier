@@ -92,6 +92,7 @@ class App():
 
         # Add File Buttons
         tk.Button(self.root, text="Upload File", command=self.uploadFile).pack()
+        tk.Button(self.root, text="Multipart File Upload", command=self.uploadFileMP).pack()
         tk.Button(self.root, text="Delete File", command=self.deleteFile).pack()
 
     def __sha256tree(self, f):
@@ -111,6 +112,66 @@ class App():
                 thash.append( hashlib.sha256(data).digest() )
             if (len(temp) == 1): thash.append( temp[0] )
         return hexlify( thash[0] ).decode("ascii")
+
+    def __sha256treePartial(self, full_data):
+        thash = []
+        size = 1024*1024 # 1MV
+        last = 0
+        data = full_data[last: last+size]
+        while (data != b""):
+            thash.append( hashlib.sha256(data).digest() )
+            last += size
+            data = full_data[last: last+size]
+        while (len(thash) > 1):
+            temp = thash
+            thash = []
+            while (len(temp) > 1):
+                data = temp[0] + temp[1]
+                temp = temp[2:]
+                thash.append( hashlib.sha256(data).digest() )
+            if (len(temp) == 1): thash.append( temp[0] )
+        return hexlify( thash[0] ).decode("ascii")
+
+
+    def uploadFileMP(self):
+        f = filedialog.askopenfilename()
+        if ( f != () and os.path.isfile(f) ):
+            request = messagebox.askyesno("Multipart Upload","Uploading file in Multiparts: " + f + " ?\nDepending of the size of the file and your bandwidth it may take some time.\nDo you want to continue?")
+            if (request): self.__uploadFileMP(f)
+    def __uploadFileMP(self, filename):
+        #   The part size must be a megabyte (1024 KB) multiplied by a power of 2,
+        # for example 1048576 (1 MB), 2097152 (2 MB), 4194304 (4 MB), 8388608 (8 MB),
+        # and so on. The minimum allowable part size is 1 MB, and the maximum
+        # is 4 GB (4096 MB).
+        # size: Size of each part in bytes, except the last. The last part can be smaller.
+        size = 1024*1024*4
+        multipartDict = self.glacier.initiate_multipart_upload(vaultName=self.vaultName,
+                                                               archiveDescription=filename, partSize=str(size))
+        res = boto3.resource("glacier")
+        multipart = res.MultipartUpload("-",self.vaultName, multipartDict["uploadId"])
+        print("Initialize Multipart:",multipart)
+        # Read File
+        f = open(filename,"rb")
+        data = f.read(size)
+        last = 0
+        while (data):
+            sha256 = self.__sha256treePartial(data)
+            if (len(data) != size): size = len(data)
+            partRange = "bytes {0}-{1}/*".format(last, (last+size-1)) # Format '0-4194303'
+            print("Sending Part:",partRange, sha256)
+            ret = multipart.upload_part(vaultName=self.vaultName,range=partRange, body=data)#, checksum=sha256)
+            print("Return:",ret)
+            last += len(data)
+            data = f.read(size)
+            #TODO: compare checksum
+        print("All Files Uploaded")
+        sha256 = self.__sha256tree(f)
+        archive = multipart.complete(archiveSize=str(last), checksum=sha256)
+        print("Upload Completed:",archive)
+        
+        #newFile.isNew = True
+        #self.inventory.files.append( newFile )
+        #self.updateFileList()
 
     def uploadFile(self):
         f = filedialog.askopenfilename()
@@ -147,6 +208,7 @@ class App():
         tk.Label(top, text="ArchiveId: " + aid, height=0, width=150).pack()
         tk.Label(top, text=checksum, height=0, width=150).pack()
         tk.Label(top, text=comcheck, height=0, width=150).pack()
+        #TODO: Do checksum comparison
 
 
     def deleteFile(self):

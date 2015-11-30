@@ -11,6 +11,7 @@ class File():
         return "File: " + self.desc + " - Size: " + str(self.size) + "bytes - Created: " + self.date
     def __repr__(self):
         return "File: " + self.desc + " - Size: " + str(self.size) + "bytes - Created: " + self.date
+    #def __cmd__(self,obj)
 
 class Inventory():
     def __init__(self, json):
