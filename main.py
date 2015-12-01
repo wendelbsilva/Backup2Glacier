@@ -12,7 +12,7 @@ import json
 import datetime
 import pickle
 import os.path
-from math import floor
+from math import floor, ceil
 from binascii import hexlify
 
 from inventory import Inventory, File
@@ -144,13 +144,15 @@ class App():
         # and so on. The minimum allowable part size is 1 MB, and the maximum
         # is 4 GB (4096 MB).
         # size: Size of each part in bytes, except the last. The last part can be smaller.
-        size = 1024*1024*4
+        size = 1024*1024*pow(2,7) #2^7 = 128 --> 128mb per part
         multipartDict = self.glacier.initiate_multipart_upload(vaultName=self.vaultName,
                                                                archiveDescription=filename, partSize=str(size))
         res = boto3.resource("glacier")
         multipart = res.MultipartUpload("-",self.vaultName, multipartDict["uploadId"])
-        print("Initialize Multipart:",multipart)
+        print("Initializing Multipart")
+
         # Read File
+        total = os.path.getsize(filename)
         f = open(filename,"rb")
         data = f.read(size)
         last = 0
@@ -158,20 +160,19 @@ class App():
             sha256 = self.__sha256treePartial(data)
             if (len(data) != size): size = len(data)
             partRange = "bytes {0}-{1}/*".format(last, (last+size-1)) # Format '0-4194303'
-            print("Sending Part:",partRange, sha256)
+            #print("Sending Part:",partRange, sha256)
             ret = multipart.upload_part(vaultName=self.vaultName,range=partRange, body=data)#, checksum=sha256)
-            print("Return:",ret)
+            #print("Return:",ret)
             last += len(data)
+            print("Progress:", floor(100*last/total), "%") 
+            #
             data = f.read(size)
             #TODO: compare checksum
         print("All Files Uploaded")
         sha256 = self.__sha256tree(f)
         archive = multipart.complete(archiveSize=str(last), checksum=sha256)
         print("Upload Completed:",archive)
-        
-        #newFile.isNew = True
-        #self.inventory.files.append( newFile )
-        #self.updateFileList()
+
 
     def uploadFile(self):
         f = filedialog.askopenfilename()
