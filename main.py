@@ -16,6 +16,7 @@ from math import floor, ceil
 from binascii import hexlify
 
 from inventory import Inventory, File
+import compress
 
 # REFERENCE:
 # - UPLOAD and RETRIEVA Requests              $0.050 per 1,000 requests
@@ -91,6 +92,7 @@ class App():
         self._files.pack()
 
         # Add File Buttons
+        tk.Button(self.root, text="Upload Directory", command=self.uploadDirectory).pack()
         tk.Button(self.root, text="Upload File", command=self.uploadFile).pack()
         tk.Button(self.root, text="Multipart File Upload", command=self.uploadFileMP).pack()
         tk.Button(self.root, text="Delete File", command=self.deleteFile).pack()
@@ -132,6 +134,13 @@ class App():
             if (len(temp) == 1): thash.append( temp[0] )
         return hexlify( thash[0] ).decode("ascii")
 
+    def uploadDirectory(self):
+        f = filedialog.askdirectory()
+        if ( f != () and os.path.isdir(f) ):
+            name = os.path.basename(f).replace(".","_") + ".tar.gz"
+            compress.compressDir(name, f)
+            self.__uploadFileMP(name)
+            os.remove(name)
 
     def uploadFileMP(self):
         f = filedialog.askopenfilename()
@@ -148,6 +157,7 @@ class App():
         multipartDict = self.glacier.initiate_multipart_upload(vaultName=self.vaultName,
                                                                archiveDescription=filename, partSize=str(size))
         res = boto3.resource("glacier")
+        print("Requesting Multipart Id")
         multipart = res.MultipartUpload("-",self.vaultName, multipartDict["uploadId"])
         print("Initializing Multipart")
 
