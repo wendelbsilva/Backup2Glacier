@@ -3,7 +3,7 @@ Backup data using AWS Glacier - Zealous-octo-rutabaga
 
 #### Dependencies: ####
 
-**Python 3
+**Python 3**
 
 **AWS Command Line Interface** - https://github.com/aws/aws-cli
 
