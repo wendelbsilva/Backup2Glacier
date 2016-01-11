@@ -137,10 +137,16 @@ class App():
     def uploadDirectory(self):
         f = filedialog.askdirectory()
         if ( f != () and os.path.isdir(f) ):
-            name = os.path.basename(f).replace(".","_") + ".tar.gz"
+            name = os.path.basename(f).replace(".","_")
+            n = datetime.datetime.now()
+            name = name + n.strftime("-%Y_%m_%d")
+            name = name + ".tar.gz"
+            print("Compressing Directory into a Temporary File")
             compress.compressDir(name, f)
             self.__uploadFileMP(name)
             os.remove(name)
+            print("Removed Temporary Compressed Directory")
+            print("Directory Uploaded Successfully")
 
     def uploadFileMP(self):
         f = filedialog.askopenfilename()
@@ -157,9 +163,9 @@ class App():
         multipartDict = self.glacier.initiate_multipart_upload(vaultName=self.vaultName,
                                                                archiveDescription=filename, partSize=str(size))
         res = boto3.resource("glacier")
-        print("Requesting Multipart Id")
+        print("Requesting Multipart Job")
         multipart = res.MultipartUpload("-",self.vaultName, multipartDict["uploadId"])
-        print("Initializing Multipart")
+        print("Job Id Received, Initializing Multipart Upload")
 
         # Read File
         total = os.path.getsize(filename)
