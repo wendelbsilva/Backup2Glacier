@@ -1,3 +1,5 @@
+import dateutil.parser
+
 class File():
     def __init__(self, json):
         self.size    = json["Size"]
@@ -16,7 +18,7 @@ class File():
 class Inventory():
     def __init__(self, json):
         self.arn = json["VaultARN"]
-        self.date = json["InventoryDate"]
+        self.date = dateutil.parser.parse(json["InventoryDate"])
         self.files = []
         for f in json["ArchiveList"]:
             self.files.append(File(f))

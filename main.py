@@ -269,12 +269,14 @@ Do you want to continue?"""
             if (job["StatusCode"] == "Succeeded"):
                 tk.Label(top, text="Completion Date: " + job["CompletionDate"] , height=0, width=50).pack()
                 jid = job["JobId"]
+                print(dateutil.parser.parse(job["CreationDate"]))
                 if (job["Action"] == "InventoryRetrieval"):
-                    a = self.res.Job("-",self.vaultName, jid)
-                    data = a.get_output()["body"]
-                    #TODO: Only update inventory if needed. Dont want to lose new/deleted info
-                    self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
-                    self.updateFileList()
+                    if (self.inventory == None or self.inventory.date < dateutil.parser.parse(job["CreationDate"])):
+                        a = self.res.Job("-",self.vaultName, jid)
+                        data = a.get_output()["body"]
+                        #TODO: Only update inventory if needed. Dont want to lose new/deleted info
+                        self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
+                        self.updateFileList()
 
     def updateFileList(self):
         # Clear Tree
