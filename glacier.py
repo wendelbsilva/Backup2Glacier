@@ -6,6 +6,8 @@ import os
 import datetime
 from math import floor, ceil
 import compress
+import json
+import pickle
 
 from inventory import Inventory, File
 
@@ -29,7 +31,8 @@ class Glacier:
         # and so on. The minimum allowable part size is 1 MB, and the maximum
         # is 4 GB (4096 MB).
         # size: Size of each part in bytes, except the last. The last part can be smaller.
-        size = 1024*1024*pow(2,7) #2^7 = 128 --> 128mb per part
+        #size = 1024*1024*pow(2,7) #2^7 = 128 --> 128mb per part
+        size = 1024*1024*pow(2,10) #2^10 = 1024 --> 1GB per part
         multipartDict = self.glacier.initiate_multipart_upload(vaultName=self.vaultName,
                                                                archiveDescription=filename, partSize=str(size))
         res = boto3.resource("glacier")
@@ -55,6 +58,7 @@ class Glacier:
             data = f.read(size)
             #TODO: compare checksum
         print("All Files Uploaded")
+        print("Verifying Checksum...")
         sha256 = self.sha256tree(f)
         archive = multipart.complete(archiveSize=str(last), checksum=sha256)
         print("Upload Completed:",archive)

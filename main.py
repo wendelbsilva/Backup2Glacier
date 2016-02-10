@@ -6,15 +6,12 @@ from tkinter import messagebox, filedialog
 
 import os
 import dateutil.parser
-import json
 import datetime
-import pickle
 import os.path
 from math import floor, ceil
 
 from inventory import Inventory, File
 from glacier import Glacier
-import compress
 
 # REFERENCE:
 # - UPLOAD and RETRIEVA Requests              $0.050 per 1,000 requests
