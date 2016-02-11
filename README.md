@@ -25,3 +25,7 @@ Then, set up a default region in `~/.aws/config`:
 
     [default]
     region=us-east-1
+
+
+#### Command Line ####
+-d: Directory to be uploaded to Glacier (Using: Multipart Upload, Default Vault Name)
