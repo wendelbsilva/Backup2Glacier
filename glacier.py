@@ -13,11 +13,16 @@ from inventory import Inventory, File
 
 class Glacier:
 
-    def __init__(self, _vaultName):
+    def __init__(self, _vaultName=None):
         self.glacier = boto3.client("glacier")
         self.res = boto3.resource("glacier")
-        
-        self.vaultName = _vaultName
+
+        if (_vaultName == None):
+            # Get Last Vault Name
+            for i in self.res.vaults.all(): self.vaultName = i.name
+        else:
+            self.vaultName = _vaultName
+            
         self.vault = self.res.Vault("-", self.vaultName)
         
         self.inventory = None
@@ -104,6 +109,7 @@ class Glacier:
         print("Deleting....", ffile.aid)
         self.glacier.delete_archive(vaultName=self.vaultName, archiveId=ffile.aid)
         ffile.deleted = True
+        print("Requested File to be Deleted")
 
     def initListFiles(self):
         #res = boto3.resource("glacier")

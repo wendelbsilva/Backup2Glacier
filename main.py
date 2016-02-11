@@ -9,6 +9,7 @@ import dateutil.parser
 import datetime
 import os.path
 from math import floor, ceil
+import argparse
 
 from inventory import Inventory, File
 from glacier import Glacier
@@ -29,7 +30,7 @@ from glacier import Glacier
 #TODO: Maybe show message dialog before every request
 
 class App():
-    def __init__(self, vault):
+    def __init__(self, vault=None):
         self.Glacier = Glacier(vault)
                
         self.root = tk.Tk()
@@ -61,11 +62,11 @@ class App():
         tk.Label(self.root, text="Size in bytes: " + str(self.Glacier.vault.size_in_bytes)).pack()
 
         # Add Main Buttons
-        btns = tk.Frame(self.root)
-        tk.Button(btns, text="List Vaults", command=self.listVaults).pack(side=tk.LEFT)
-        tk.Button(btns, text="List Files", command=self.listFiles).pack(side=tk.LEFT)
-        tk.Button(btns, text="Job Status", command=self.jobStatus).pack(side=tk.LEFT)
-        btns.pack()
+        btnTop = tk.Frame(self.root)
+        tk.Button(btnTop, text="List Vaults", command=self.listVaults).pack(side=tk.LEFT)
+        tk.Button(btnTop, text="Request List Files", command=self.listFiles).pack(side=tk.LEFT)
+        tk.Button(btnTop, text="Job Status", command=self.jobStatus).pack(side=tk.LEFT)
+        btnTop.pack()
 
         # Add File Treeview
         cols = ["File","Size","Date"]
@@ -74,10 +75,12 @@ class App():
         self._files.pack()
 
         # Add File Buttons
-        tk.Button(self.root, text="Upload Directory", command=self.uploadDirectory).pack()
-        tk.Button(self.root, text="Upload File", command=self.uploadFile).pack()
-        tk.Button(self.root, text="Multipart File Upload", command=self.uploadFileMP).pack()
-        tk.Button(self.root, text="Delete File", command=self.deleteFile).pack()
+        btnBottom = tk.Frame(self.root)
+        tk.Button(btnBottom, text="Upload Directory", command=self.uploadDirectory).pack(side=tk.LEFT)
+        tk.Button(btnBottom, text="Upload File", command=self.uploadFile).pack(side=tk.LEFT)
+        tk.Button(btnBottom, text="Multipart File Upload", command=self.uploadFileMP).pack(side=tk.LEFT)
+        tk.Button(btnBottom, text="Delete File", command=self.deleteFile).pack(side=tk.LEFT)
+        btnBottom.pack()
         
     def uploadDirectory(self):
         f = filedialog.askdirectory()
@@ -121,7 +124,8 @@ class App():
         d = dateutil.parser.parse(f["Date"])
         d.replace(tzinfo=None)
         days = (d.replace(tzinfo=None)-datetime.datetime.utcnow()).days
-        if (days < 90):
+        request = True
+        if (days > -90):
             title = "Continue Deleting Archive?"
             msg = """This file was uploaded less than 90 days ago.
 This action will cost deletion fee.
@@ -131,6 +135,8 @@ Do you want to continue?"""
         # Delete?
         if (request and ffile.aid != None and ffile.deleted == False):
             self.Glacier.deleteFile(ffile)
+            self.updateFileList()
+            
 
     #TODO
     def jobStatus(self):
@@ -210,9 +216,27 @@ Do you want to continue?"""
         #        self.active_jobs.pop(i)
         #        ret = self.glacier.get_job_output()
         #        print(ret)
-    
+
+class FullPath(argparse.Action):
+    """Expand user- and relative-paths"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
+def is_dir(dirname):
+    """Checks if a path is an actual directory"""
+    if not os.path.isdir(dirname):
+        msg = "{0} is not a directory".format(dirname)
+        raise argparse.ArgumentTypeError(msg)
+    else:
+        return dirname
 
 if __name__ == "__main__":
-    #TODO: separate logic from GUI
-    #TODO: read arguments
-    app = App("GlimchersGroupBackup")
+    parser = argparse.ArgumentParser(description="description here")
+    parser.add_argument("-d",help="Directory to be uploaded using Multipart",action=FullPath, type=is_dir)
+    args = parser.parse_args()
+    if (args.d == None):
+        app = App()
+    else:
+        glacier = Glacier()
+        glacier.loadDefault()
+        glacier.uploadDirectory(args.d)        
+        glacier.closeDefault()
