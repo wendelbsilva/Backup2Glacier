@@ -1,4 +1,5 @@
 
+import sys
 import boto3
 import hashlib
 from binascii import hexlify
@@ -77,8 +78,9 @@ class Glacier:
         print("Compressing Directory into a Temporary File")
         compress.compressDir(name, f)
         self.uploadFileMultiPart(name)
-        os.remove(name)
-        print("Removed Temporary Compressed Directory")
+        #os.remove(name)
+        #print("Removed Temporary Compressed Directory")
+        print("File not removed:", name)
         print("Directory Uploaded Successfully")
 
     def uploadFile(self, filename):
@@ -120,14 +122,18 @@ class Glacier:
         self.active_jobs.append(a.job_id)
 
     def listJobs(self):
-        j = self.glacier.list_jobs(vaultName=self.vaultName)
+        glacier = boto3.client("glacier")
+        j = glacier.list_jobs(vaultName=self.vaultName)
         print(j)
         ret = []
+        res = boto3.resource("glacier")
         for job in j["JobList"]:
             if (job["StatusCode"] == "Succeeded" and job["Action"] == "InventoryRetrieval"):
                 if (self.inventory == None or
                     self.inventory.date < dateutil.parser.parse(job["CreationDate"])):
-                    a = self.res.Job("-",self.vaultName, job["JobId"])
+                    a = res.Job("-",self.vaultName, job["JobId"])
+                    print(job)
+                    print(a)
                     data = a.get_output()["body"]
                     #TODO: Only update inventory if needed. Dont want to lose new/deleted info
                     self.inventory = Inventory( json.loads(data.read().decode("utf-8")) )
